@@ -1,0 +1,62 @@
+
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+load 'config.rb'
+
+def workerIP(num)
+  return "172.16.78.#{num+250}"
+end
+
+VAGRANTFILE_API_VERSION = "2"
+
+ENV['VAGRANT_DEFAULT_PROVIDER'] = 'virtualbox'
+
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+
+  ip = "172.16.78.250"
+  config.vm.box_check_update = false
+  config.vm.box = $linux_distr
+  config.vm.define "master" do |master|
+    master.vm.network :private_network, :ip => "#{ip}"
+	master.vm.network "forwarded_port", guest: 8001, host: 8001
+    master.vm.hostname = "k8s-master"
+    master.vm.provider "virtualbox" do |v|
+      v.memory = $master_memory
+	  v.cpus = "2"
+	  v.name = "k8s-master"
+    end
+    master.vm.provision :shell, :inline => "sed 's/127.0.0.1.*k8s-master/#{ip} k8s-master/' -i /etc/hosts"
+    master.vm.provision :shell do |s|
+      if $linux_distr == "centos/7"
+		s.inline = "sh /vagrant/installMasterCentOS.sh $1 $2"
+	  end
+	  if $linux_distr == "ubuntu/xenial64"
+		s.inline = "sh /vagrant/installMasterUbuntu.sh $1 $2"
+	  end
+      s.args = ["#{ip}", "#{$token}"]
+    end
+  end
+  (1..$worker_count).each do |i|
+    config.vm.define vm_name = "node-%d" % i do |node|
+      node.vm.network :private_network, :ip => "#{workerIP(i)}"
+      node.vm.hostname = vm_name
+      node.vm.provider "virtualbox" do |v|
+        v.memory = $worker_memory
+		v.cpus = "2"
+		v.name = "k8s-node-#{i}"	
+      end
+      node.vm.provision :shell, :inline => "sed 's/127.0.0.1.*k8s-node-#{i}/#{workerIP(i)} k8s-node-#{i}/' -i /etc/hosts"
+      node.vm.provision :shell do |s|
+		if $linux_distr == "centos/7"
+			s.inline = "sh /vagrant/installWorkerCentOS.sh $1 $2"
+		end
+		if $linux_distr == "ubuntu/xenial64"
+			s.inline = "sh /vagrant/installWorkerUbuntu.sh $1 $2"
+		end
+        s.args = ["#{ip}", "#{$token}"]
+      end
+    end
+  end
+
+end

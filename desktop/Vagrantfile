@@ -1,0 +1,242 @@
+Vagrant.configure("2") do |config|
+
+  config.vm.define "jenkins" do |jenkins|
+	  jenkins.vm.box_check_update = false
+	  jenkins.vm.box = "centos/7"
+	  jenkins.vm.host_name = "jenkins"
+	  jenkins.vm.network "forwarded_port", guest: 8080, host: 8080, auto_correct: true, id: "jenkins"
+	  jenkins.vm.network "forwarded_port", guest: 22, host: 2200, auto_correct: true, id: "ssh"
+	  jenkins.vm.network "private_network", ip: "192.168.0.20", virtualbox__intnet: "devNetwork"
+	  #jenkins.vm.boot_timeout = 30000
+	  
+	  jenkins.vm.provider "virtualbox" do |vb|
+		vb.memory = "2048"
+		vb.cpus = "2"
+		vb.name = "Jenkins"
+	  end
+	  
+	  jenkins.vm.provision "shell", inline: <<-SHELL
+	    echo "\n----- Config Yum Proxy -----\n"
+		echo -e "proxy=http://10.0.8.102:8080\nproxy_username=rmendess\nproxy_password=Ban$#ee1981" >> /etc/yum.conf 
+		echo "\n----- Update linux ------\n"
+		yum -y install epel-release wget unzip
+		yum -y update
+		echo "\n----- Installing Java 8 ------\n"
+		yum -y install java-1.8.0-openjdk-devel.x86_64
+		echo "\n----- Configuring JAVA_HOME ------\n"
+		cp /etc/profile /etc/profile_backup
+		echo 'export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.151-1.b12.el7_4.x86_64' | tee -a /etc/profile
+		echo 'export JRE_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.151-1.b12.el7_4.x86_64/jre' | tee -a /etc/profile
+		source /etc/profile
+		echo "\n----- Configuring for Install Jenkins ------\n"
+		cd ~
+		wget -O /etc/yum.repos.d/jenkins.repo http://pkg.jenkins-ci.org/redhat-stable/jenkins.repo
+		rpm --import http://pkg.jenkins-ci.org/redhat-stable/jenkins-ci.org.key
+		echo "\n----- Installing Jenkins ------\n"
+		yum -y update
+		yum -y install jenkins
+		systemctl start jenkins
+		systemctl enable jenkins
+		echo "\n------ Config Jenkins timeout -----\n"
+		sed -i -r "s/JENKINS_ARGS=\\"(.*)\\"/JENKINS_ARGS=\\"\\1 --httpKeepAliveTimeout=60000\\"/g" /etc/sysconfig/jenkins
+		systemctl restart jenkins.service
+		echo "\n----- Installing Maven -----\n"
+		yum -y update
+		yum -y install maven
+		echo "\n----- Installing Gradle -----\n"
+		wget https://services.gradle.org/distributions/gradle-4.3-bin.zip
+		mkdir /opt/gradle
+		unzip -d /opt/gradle gradle-4.3-bin.zip
+		export PATH=$PATH:/opt/gradle/gradle-4.3/bin
+		echo 'export GRADLE_HOME=/opt/gradle/gradle-4.3/bin' | tee -a /etc/profile
+		echo 'export PATH=/usr/local/gradle/gradle-4.3/bin:$PATH' | tee -a /etc/profile
+		source /etc/profile
+		echo "\n------ Installing Jenkins plugins -----\n"
+		sleep 10
+		java -jar /var/cache/jenkins/war/WEB-INF/jenkins-cli.jar -s http://127.0.0.1:8080/ install-plugin maven-plugin -deploy --username admin --password $(sudo cat /var/lib/jenkins/secrets/initialAdminPassword)
+		java -jar /var/cache/jenkins/war/WEB-INF/jenkins-cli.jar -s http://127.0.0.1:8080/ install-plugin checkstyle -deploy --username admin --password $(sudo cat /var/lib/jenkins/secrets/initialAdminPassword)
+		java -jar /var/cache/jenkins/war/WEB-INF/jenkins-cli.jar -s http://127.0.0.1:8080/ install-plugin pmd -deploy --username admin --password $(sudo cat /var/lib/jenkins/secrets/initialAdminPassword)
+		java -jar /var/cache/jenkins/war/WEB-INF/jenkins-cli.jar -s http://127.0.0.1:8080/ install-plugin findbugs -deploy --username admin --password $(sudo cat /var/lib/jenkins/secrets/initialAdminPassword)
+		java -jar /var/cache/jenkins/war/WEB-INF/jenkins-cli.jar -s http://127.0.0.1:8080/ install-plugin maven-info -deploy --username admin --password $(sudo cat /var/lib/jenkins/secrets/initialAdminPassword)
+		java -jar /var/cache/jenkins/war/WEB-INF/jenkins-cli.jar -s http://127.0.0.1:8080/ install-plugin schedule-build -deploy --username admin --password $(sudo cat /var/lib/jenkins/secrets/initialAdminPassword)
+		java -jar /var/cache/jenkins/war/WEB-INF/jenkins-cli.jar -s http://127.0.0.1:8080/ install-plugin sonar -deploy --username admin --password $(sudo cat /var/lib/jenkins/secrets/initialAdminPassword)
+		java -jar /var/cache/jenkins/war/WEB-INF/jenkins-cli.jar -s http://127.0.0.1:8080/ install-plugin nexus-artifact-uploader -deploy --username admin --password $(sudo cat /var/lib/jenkins/secrets/initialAdminPassword)
+		java -jar /var/cache/jenkins/war/WEB-INF/jenkins-cli.jar -s http://127.0.0.1:8080/ install-plugin github -deploy --username admin --password $(sudo cat /var/lib/jenkins/secrets/initialAdminPassword)
+		java -jar /var/cache/jenkins/war/WEB-INF/jenkins-cli.jar -s http://127.0.0.1:8080/ install-plugin pipeline-github -deploy --username admin --password $(sudo cat /var/lib/jenkins/secrets/initialAdminPassword)
+		java -jar /var/cache/jenkins/war/WEB-INF/jenkins-cli.jar -s http://127.0.0.1:8080/ install-plugin pipeline-githubnotify-step -deploy --username admin --password $(sudo cat /var/lib/jenkins/secrets/initialAdminPassword)
+		java -jar /var/cache/jenkins/war/WEB-INF/jenkins-cli.jar -s http://127.0.0.1:8080/ install-plugin gradle -deploy --username admin --password $(sudo cat /var/lib/jenkins/secrets/initialAdminPassword)
+		java -jar /var/cache/jenkins/war/WEB-INF/jenkins-cli.jar -s http://127.0.0.1:8080/ restart --username admin --password $(sudo cat /var/lib/jenkins/secrets/initialAdminPassword)
+        echo "\n------ Installing Ansible -----\n"	
+		yum install epel-release -y
+		yum install ansible -y
+		sudo echo -e "[datacenter]\ndocker-dc ansible_ssh_host=192.168.0.30" >> /etc/ansible/hosts
+		echo "\n------ VM create Successfully -----\n"
+	  SHELL
+  end
+  
+ config.vm.define "desktop" do |desktop|
+ 	  desktop.vm.box_check_update = false
+	  desktop.vm.box = "centos/7"
+	  desktop.vm.host_name = "desktop"
+	  desktop.vm.network "forwarded_port", guest: 22, host: 2100, auto_correct: true, id: "ssh"
+	  desktop.vm.network "private_network", ip: "192.168.0.10", virtualbox__intnet: "devNetwork"
+	  desktop.vm.boot_timeout = 3000000
+
+	  desktop.vm.provider "virtualbox" do |vb|
+		  vb.gui = false
+		  vb.memory = "2048"
+		  vb.cpus = "2"
+		  vb.name = "DesktopDev"
+	  end
+	  desktop.vm.provision "shell", inline: <<-SHELL
+		  echo "\n----- Config Yum Proxy -----\n"
+		  echo -e "proxy=http://10.0.8.102:8080\nproxy_username=rmendess\nproxy_password=Ban$#ee1981" >> /etc/yum.conf 
+		  echo "\n----- Installing Pre Requirement -----\n"
+		  yum -y update kernel*
+		  rpm -Uvh https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm --httpproxy http://rmendess:Ban$#ee1981@10.0.8.102:8080
+		  yum -y install gcc kernel-devel kernel-headers dkms make bzip2 perl java-1.8.0-openjdk-devel.x86_64
+		  echo "\n------ Installing Grafic interface -----\n"
+		  yum -y groups install "KDE Plasma Workspaces" "Compatibility Libraries" "GNOME Desktop"
+		  KERN_DIR=/usr/src/kernels/`uname -r`
+		  export KERN_DIR
+		  cd /opt
+		  wget -c http://download.virtualbox.org/virtualbox/5.1.30/VBoxGuestAdditions_5.1.30.iso -O VBoxGuestAdditions_5.1.30.iso -e use_proxy=yes -e https_proxy=http://rmendess:Ban$#ee1981@10.0.8.102:8080 -e http_proxy=http://rmendess:Ban$#ee1981@10.0.8.102:8080
+		  mount VBoxGuestAdditions_5.1.30.iso -o loop /mnt
+		  cd /mnt
+		  sh VBoxLinuxAdditions.run --nox11
+		  cd /opt
+		  rm *.iso -y
+		  echo "\n------ Setting Grafic interface for init -----\n"
+		  ln -sf /lib/systemd/system/runlevel5.target /etc/systemd/system/default.target
+		  echo "\n----- Installing Gradle -----\n"
+		  wget https://services.gradle.org/distributions/gradle-4.3-bin.zip -e use_proxy=yes -e http_proxy=http://rmendess:Ban$#ee1981@10.0.8.102:8080
+		  mkdir /opt/gradle
+		  unzip -d /opt/gradle gradle-4.3-bin.zip
+		  export PATH=$PATH:/opt/gradle/gradle-4.3/bin
+		  echo 'export GRADLE_HOME=/opt/gradle/gradle-4.3/bin' | tee -a /etc/profile
+		  echo 'export PATH=/usr/local/gradle/gradle-4.3/bin:$PATH' | tee -a /etc/profile
+		  source /etc/profile
+		  
+		  echo "\n------ Installing Eclipse -----\n"
+		  wget -c http://ftp-stud.fht-esslingen.de/pub/Mirrors/eclipse/technology/epp/downloads/release/oxygen/1a/eclipse-java-oxygen-1a-linux-gtk-x86_64.tar.gz -e use_proxy=yes -e https_proxy=http://rmendess:Ban$#ee1981@10.0.8.102:8080 -e http_proxy=http://rmendess:Ban$#ee1981@10.0.8.102:8080
+		  tar -xvzf eclipse-java-oxygen-1a-linux-gtk-x86_64.tar.gz -C /opt
+		  chmod -R +r /opt/eclipse
+		  touch /usr/bin/eclipse
+		  chmod 755 /usr/bin/eclipse
+		  echo 'export ECLIPSE_HOME="/opt/eclipse"' > /usr/bin/eclipse
+		  echo '$ECLIPSE_HOME/eclipse $*' >> /usr/bin/eclipse
+		  
+		  echo "[Desktop Entry]" > /usr/share/applications/eclipse.desktop
+		  echo "Encoding=UTF-8" >> /usr/share/applications/eclipse.desktop
+		  echo "Name=Eclipse" >> /usr/share/applications/eclipse.desktop
+		  echo "Comment=Eclipse Oxigen" >> /usr/share/applications/eclipse.desktop
+		  echo "Exec=eclipse" >> /usr/share/applications/eclipse.desktop
+		  echo "Icon=/opt/eclipse/icon.xpm" >> /usr/share/applications/eclipse.desktop
+		  echo "Terminal=false" >> /usr/share/applications/eclipse.desktop
+		  echo "Type=Application" >> /usr/share/applications/eclipse.desktop
+		  echo "Categories=GNOME;Application;Development;" >> /usr/share/applications/eclipse.desktop
+		  echo "StartupNotify=true" >> /usr/share/applications/eclipse.desktop
+
+		  echo "\n------ Installing IntelliJ -----\n"
+		  wget -c https://download.jetbrains.com/idea/ideaIU-2017.2.6-no-jdk.tar.gz  -e use_proxy=yes -e https_proxy=http://rmendess:Ban$#ee1981@10.0.8.102:8080 -e http_proxy=http://rmendess:Ban$#ee1981@10.0.8.102:8080
+		  tar -xvzf ideaIU-2017.2.6-no-jdk.tar.gz -C /opt	  
+		  chmod -R +r /opt/idea-IU-172.4574.11
+		  touch /usr/bin/idea
+		  chmod 755 /usr/bin/idea		  
+		  echo 'export IDEA_HOME="/opt/idea-IU-172.4574.11"' > /usr/bin/idea
+		  echo '$IDEA_HOME/bin/idea.sh $*' >> /usr/bin/idea		  
+		  echo "[Desktop Entry]" > /usr/share/applications/idea.desktop
+		  echo "Encoding=UTF-8" >> /usr/share/applications/idea.desktop
+		  echo "Name=IntelliJ" >> /usr/share/applications/idea.desktop
+		  echo "Comment=IntelliJ IDEA" >> /usr/share/applications/idea.desktop
+		  echo "Exec=idea" >> /usr/share/applications/idea.desktop
+		  echo "Icon=/opt/idea-IU-172.4574.11/bin/idea.png" >> /usr/share/applications/idea.desktop
+		  echo "Terminal=false" >> /usr/share/applications/idea.desktop
+		  echo "Type=Application" >> /usr/share/applications/idea.desktop
+		  echo "Categories=GNOME;Application;Development;" >> /usr/share/applications/idea.desktop
+		  echo "StartupNotify=true" >> /usr/share/applications/idea.desktop
+		  
+		  echo "\n------ Installing STS -----\n"
+		  wget -c http://download.springsource.com/release/STS/3.9.1.RELEASE/dist/e4.7/spring-tool-suite-3.9.1.RELEASE-e4.7.1a-linux-gtk-x86_64.tar.gz  -e use_proxy=yes -e https_proxy=http://rmendess:Ban$#ee1981@10.0.8.102:8080 -e http_proxy=http://rmendess:Ban$#ee1981@10.0.8.102:8080
+		  tar -xvzf spring-tool-suite-3.9.1.RELEASE-e4.7.1a-linux-gtk-x86_64.tar.gz -C /opt
+		  chmod -R +r /opt/sts-bundle
+		  
+		  sudo touch /usr/bin/sts
+		  sudo chmod 755 /usr/bin/sts
+		  
+		  sudo echo 'export STS_HOME="/opt/sts-bundle/sts-3.9.1.RELEASE"' > /usr/bin/sts
+		  sudo echo '$STS_HOME/STS $*' >> /usr/bin/sts
+		  
+		  sudo echo "[Desktop Entry]" > /usr/share/applications/sts.desktop
+		  sudo echo "Encoding=UTF-8" >> /usr/share/applications/sts.desktop
+		  sudo echo "Name=STS" >> /usr/share/applications/sts.desktop
+		  sudo echo "Comment=STS Spring Tools" >> /usr/share/applications/sts.desktop
+		  sudo echo "Exec=sts" >> /usr/share/applications/sts.desktop
+		  sudo echo "Icon=/opt/sts-bundle/sts-3.9.1.RELEASE/icon.xpm" >> /usr/share/applications/sts.desktop
+		  sudo echo "Terminal=false" >> /usr/share/applications/sts.desktop
+		  sudo echo "Type=Application" >> /usr/share/applications/sts.desktop
+		  sudo echo "Categories=GNOME;Application;Development;" >> /usr/share/applications/sts.desktop
+		  sudo echo "StartupNotify=true" >> /usr/share/applications/sts.desktop		  
+		  
+		  echo "\n------ Installing Scala IDE -----\n"
+		  wget -c http://downloads.typesafe.com/scalaide-pack/4.7.0-vfinal-oxygen-212-20170929/scala-SDK-4.7.0-vfinal-2.12-linux.gtk.x86_64.tar.gz -e use_proxy=yes -e https_proxy=http://rmendess:Ban$#ee1981@10.0.8.102:8080 -e http_proxy=http://rmendess:Ban$#ee1981@10.0.8.102:8080
+		  mkdir /opt/scala
+		  tar -xvzf scala-SDK-4.7.0-vfinal-2.12-linux.gtk.x86_64.tar.gz -C /opt/scala
+		  chmod -R +r /opt/scala
+		  touch /usr/bin/scala
+		  chmod 755 /usr/bin/scala
+		  echo 'export ECLIPSE_HOME="/opt/scala/eclipse"' > /usr/bin/scala
+		  echo '$ECLIPSE_HOME/eclipse $*' >> /usr/bin/scala
+		  
+		  echo "[Desktop Entry]" > /usr/share/applications/scala.desktop
+		  echo "Encoding=UTF-8" >> /usr/share/applications/scala.desktop
+		  echo "Name=ScalaIDE" >> /usr/share/applications/scala.desktop
+		  echo "Comment=Eclipse ScalaIDE" >> /usr/share/applications/scala.desktop
+		  echo "Exec=scala" >> /usr/share/applications/scala.desktop
+		  echo "Icon=/opt/scala/eclipse/icon.xpm" >> /usr/share/applications/scala.desktop
+		  echo "Terminal=false" >> /usr/share/applications/scala.desktop
+		  echo "Type=Application" >> /usr/share/applications/scala.desktop
+		  echo "Categories=GNOME;Application;Development;" >> /usr/share/applications/scala.desktop
+		  echo "StartupNotify=true" >> /usr/share/applications/scala.desktop
+		  
+		  echo "\n----- Configuring JAVA_HOME ------\n"
+		  cp /etc/profile /etc/profile_backup
+		  echo 'export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.151-1.b12.el7_4.x86_64' | tee -a /etc/profile
+		  echo 'export JRE_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.151-1.b12.el7_4.x86_64/jre' | tee -a /etc/profile
+		  source /etc/profile
+		  echo "\n------ VM create Successfully -----\n"	  
+		  reboot
+	  SHELL
+  end
+
+  
+  config.vm.define "dc" do |dc|
+    dc.vm.box_check_update = false
+    dc.vm.box = "centos/7"
+    dc.vm.host_name = "datacenter"
+    dc.vm.network "forwarded_port", guest: 22, host: 2300, auto_correct: true, id: "ssh"
+    dc.vm.network "private_network", ip: "192.168.0.30", virtualbox__intnet: "devNetwork"   
+    #dc.vm.boot_timeout = 3000	
+    dc.vm.provider "virtualbox" do |vb|
+		vb.memory = "2048"
+		vb.cpus = "2"
+		vb.name = "DataCenter"
+    end
+    
+    dc.vm.provision "shell", inline: <<-SHELL
+      echo "\n----- Config Yum Proxy -----\n"
+	  echo -e "proxy=http://10.0.8.102:8080\nproxy_username=rmendess\nproxy_password=Ban$#ee1981" >> /etc/yum.conf 	
+  	  echo "\n------ Update Linux -----\n"
+  	  yum -y update
+  	  echo "\n------ Installing docker -----\n"
+  	  yum install -y yum-utils device-mapper-persistent-data lvm
+  	  yum-config-manager -y --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+  	  yum -y install docker-ce
+  	  systemctl start docker
+	  echo "\n------ Installing Kubernetes -----\n"
+	  
+  	  echo "\n------ VM create Successfully -----\n"
+    SHELL
+  end
+   
+end

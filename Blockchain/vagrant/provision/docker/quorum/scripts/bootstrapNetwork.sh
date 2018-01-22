@@ -1,0 +1,139 @@
+#!/bin/bash
+
+rm -f /localNetwork/work/static-nodes.lock
+rm -f /localNetwork/work/static-nodes.created
+rm -f /localNetwork/work/static-nodes.json
+
+mkdir /localNetwork/work
+mkdir /localNetwork/work/lock
+mkdir /localNetwork/work/enode
+
+mkdir /blockchainData
+mkdir /blockchainData/data
+
+cp /localNetwork/networkConfiguration/genesis.json /blockchainData/genesis.json
+
+touch /localNetwork/work/lock/$(hostname -i).lock
+
+geth --datadir=/blockchainData/data init /blockchainData/genesis.json & wait $!
+
+geth --verbosity 1 --networkid 99 --datadir=/blockchainData/data console --exec admin.nodeInfo.enode > /localNetwork/work/enode/$(hostname -i) & wait $!
+sed -i "s/\[::]/$(hostname -i)/g" /localNetwork/work/enode/$(hostname -i)
+sed -i "s/\:30303/:30303?discport=0/g" /localNetwork/work/enode/$(hostname -i) & wait $!
+
+rm -f /localNetwork/work/lock/$(hostname -i).lock
+
+while [ $(ls /localNetwork/work/lock 2> /dev/null | wc -l) != "0" ] 
+do 
+	sleep 2
+done
+
+if [ -e /localNetwork/work/static-nodes.lock ]
+then
+	while [ -e /localNetwork/work/static-nodes.lock ]
+	do
+		sleep 2
+	done
+else
+	if [ ! -e /localNetwork/work/static-nodes.created ]
+    then	
+		touch /localNetwork/work/static-nodes.lock
+		touch /localNetwork/work/static-nodes.json
+
+		echo '[' >> /localNetwork/work/static-nodes.json
+		for f in /localNetwork/work/enode/* 
+		do
+		  echo $(cat $f) >> /localNetwork/work/static-nodes.json & wait $!
+		  rm -f "$f" & wait $!
+		  if [ ! $(ls /localNetwork/work/enode 2> /dev/null | wc -l) -eq "0" ]
+		  then
+			 echo "," >> /localNetwork/work/static-nodes.json & wait $!		 
+		  fi
+		done
+		
+		echo ']' >> /localNetwork/work/static-nodes.json & wait $!
+		rm -f /localNetwork/work/static-nodes.lock & wait $!		
+		touch /localNetwork/work/static-nodes.created & wait $!
+	fi
+fi
+
+cp /localNetwork/work/static-nodes.json /blockchainData/data/static-nodes.json
+wait
+
+geth --verbosity 2 --datadir=/blockchainData/data --networkid 99 --port 30303 --rpc -rpcport 8545 --etherbase "0x0000000000000000000000000000000000000000" console --rpcaddr "0.0.0.0" --rpccorsdomain "*"
+
+#geth --verbosity 1 --datadir=/blockchainData/data --networkid 99 console --exec admin.peers
+
+
+#================================================================================================
+##geth --verbosity 1 --datadir=/localNetwork/data console
+## admin.nodeInfo - for know enode
+#
+#================================================================================================
+##get enode
+#geth --verbosity 1 --networkid 99 console --exec admin.nodeInfo.enode net.peerCount
+##get IP
+#hostname -i
+#
+#geth --verbosity 1 --networkid 99 console --exec admin.nodeInfo.enode > $(hostname -i) 
+#sed -i "s/\[::]/$(hostname -i)/g" $(hostname -i) 
+#geth --verbosity 1 --networkid 99 console --exec admin.addPeer( $(cat $(hostname -i) ) )
+#
+#================================================================================================
+#para criar dinamicamente o static-nodes.json
+#================================================================================================
+#Setiverem todos onome baseado nos iPS
+#for i in $(ls | egrep -i 'MYFILE[0-9][0-9]([0][1-9]|1[0-2])([0][1-9]|[12][0-9]|[3][01]).dat' ) 
+#do             
+# echo item: $i         
+#done
+#
+#echo '[' >> static-nodes.json
+#for f in *
+#do 
+#	echo "Processing $f file.." 
+#	echo $(cat $f) >> static-nodes.json
+#done
+#echo ']' >> static-nodes.json
+#================================================================================================
+#
+#curl -X POST --data '{"jsonrpc":"2.0","method": "admin_addPeer", "params": "[enode]"}' localhost:8545
+#IPC
+#echo '{"jsonrpc":"2.0","method":"modules","params":[],"id":1}' | nc -U $datadir/geth.ipc
+#
+#{"method": "admin_addPeer", "params": [enode]}
+#{"method": "admin_addPeer", "params": "enode://a979fb575495b8d6db44f750317d0f4622bf4c2aa3365d6af7c284339968eef29b69ad0dce72a4d8db5ebb4968de0e3bec910127f134779fbcb0cb6d3331163c@52.16.188.185:30303"}
+#
+#{"method": "admin_peers"}
+#curl -X POST --data '{"jsonrpc":"2.0","method": "admin_peers"}' localhost:8545
+#IPC
+#echo '{"jsonrpc":"2.0","method":"modules","params":[],"id":1}' | nc -U $datadir/geth.ipc
+#
+#
+#
+##executar .js dentro do console
+#geth attach << EOF | grep "Data: " | sed "s/Data: //"
+#
+#$(cat enode)
+#
+#EOF
+#
+##admin.addPeer("enode://5757246166f3f982a7dd90059bf6a0c8043b73d392fa1ee73bbc5cb84c1c1676c5f495c060e2197ef9b84682ef9b0336dec2a2e46afd411e7a87504c2b569dee@54.168.239.64:30303")
+#
+##https://kubernetes.io/docs/reference/kubectl/docker-cli-to-kubectl/
+#
+##static-nodes.json
+##["enode://99347f2d6f4536163a92c4b1e7f4b8e06742076457e30ad0f327a8ca736b1988db4d0c87d84cfb46a0a943766cfd4e93be250143b1e5c08d9d1e11075d351433@172.18.0.2:30303",
+##"enode://c368ac616415d29b0021a87c9bb3425ac5def31d930ec8133e76f51e3053747e473404e98cbc2e32c54effa76c0612b40a1be2d93940c93cf80e9507c2258252@172.18.0.4:30303",
+##"enode://330b23e5def9c12c9f1dbdf77752c48cce54ab11bbba009368199b6079919032b78cbf46d2c2d82d274bc22234a80da24ac36748dc1c4aff2977c529a1ef1f29@172.18.0.3:30303"
+##]
+##
+##================================================================================================
+##geth --verbosity 2 --datadir=/localNetwork/data --networkid 99 --port 30303 --rpc -rpcport 8545 --etherbase "0x0000000000000000000000000000000000000000" console --rpcaddr "0.0.0.0" --rpccorsdomain "*"
+##
+##net.listening
+##net.peerCount
+##
+##================================================================================================
+###CLIENT - only
+##geth attach rpc:http://172.18.0.2:8545
