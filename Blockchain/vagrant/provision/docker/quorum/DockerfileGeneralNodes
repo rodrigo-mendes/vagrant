@@ -7,7 +7,7 @@ COPY scripts/installEthereum.sh .
 COPY scripts/installEthereumClient.sh .
 COPY scripts/installConstallationQuorum.sh .
 
-COPY scripts/bootstrapNetwork.sh .
+COPY scripts/bootstrapNetworkQuorum.sh .
 
 RUN /bin/bash installPreRequirements.sh
 RUN /bin/bash installGolang.sh
@@ -16,6 +16,6 @@ RUN /bin/bash installEthereum.sh
 RUN /bin/bash installEthereumClient.sh
 RUN /bin/bash installConstallationQuorum.sh
 
-CMD ["/bin/bash", "./bootstrapNetwork.sh"]
+CMD ["/bin/bash", "./bootstrapNetworkQuorum.sh"]
 
 EXPOSE 9000 21000 21000/udp 22000 41000 8545 30303

@@ -6,7 +6,7 @@ COPY scripts/installLevelDB.sh .
 COPY scripts/installEthereum.sh .
 COPY scripts/installEthereumClient.sh .
 
-COPY scripts/bootstrapNetwork.sh .
+COPY scripts/bootstrapNetworkEthereum.sh .
 
 RUN /bin/bash installPreRequirements.sh
 RUN /bin/bash installGolang.sh
@@ -14,6 +14,6 @@ RUN /bin/bash installLevelDB.sh
 RUN /bin/bash installEthereum.sh
 RUN /bin/bash installEthereumClient.sh
 
-CMD ["/bin/bash", "./bootstrapNetwork.sh"]
+CMD ["/bin/bash", "./bootstrapNetworkEthereum.sh"]
 
 EXPOSE 9000 21000 21000/udp 22000 41000 8545 30303
