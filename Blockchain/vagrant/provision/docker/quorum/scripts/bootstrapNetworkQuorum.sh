@@ -5,29 +5,22 @@ rm -f /localNetwork/work/static-nodes.created
 rm -f /localNetwork/work/static-nodes.json
 
 mkdir /localNetwork/work
-mkdir /localNetwork/work/lock
-mkdir /localNetwork/work/enode
+mkdir /localNetwork/work/{lock,enode}
 
 mkdir /blockchainData
-
 mkdir /blockchainData/data
 mkdir /blockchainData/data/logs
-
-mkdir /blockchainData/qdata
-mkdir /blockchainData/qdata/logs
-
-$WORKDIRETH=/blockchainData/data
-$WORKDIRQUORUM=/blockchainData/qdata
+mkdir /blockchainData/data/constellation
+mkdir /blockchainData/data/constellation/{data,logs}
+mkdir /blockchainData/data/constellation/data/keystore
 
 cp /localNetwork/networkConfiguration/genesis.json /blockchainData/genesis.json
 
-cp /localNetwork/networkConfiguration/template.conf /blockchainData/$(hostname -i).conf
-
 touch /localNetwork/work/lock/$(hostname -i).lock
 
-geth --datadir=$WORKDIRETH init /blockchainData/genesis.json & wait $!
+geth --datadir=/blockchainData/data init /blockchainData/genesis.json & wait $!
 
-geth --verbosity 1 --networkid 99 --datadir=$WORKDIRETH console --exec admin.nodeInfo.enode > /localNetwork/work/enode/$(hostname -i) & wait $!
+geth --verbosity 1 --networkid 99 --datadir=/blockchainData/data console --exec admin.nodeInfo.enode > /localNetwork/work/enode/$(hostname -i) & wait $!
 sed -i "s/\[::]/$(hostname -i)/g" /localNetwork/work/enode/$(hostname -i)
 sed -i "s/\:30303/:30303?discport=0/g" /localNetwork/work/enode/$(hostname -i) & wait $!
 
@@ -67,18 +60,28 @@ else
 	fi
 fi
 
-cp /localNetwork/work/static-nodes.json $WORKDIRETH/static-nodes.json
+cp /localNetwork/work/static-nodes.json /blockchainData/data/static-nodes.json
+
 #All nodes are permissoned
-cp /localNetwork/work/static-nodes.json $WORKDIRETH/permissioned-nodes.json
-wait
+cp /localNetwork/work/static-nodes.json /blockchainData/data/permissioned-nodes.json
+#sed -i "s/\:30303?discport=0/:30303/g" /blockchainData/data/permissioned-nodes.json & wait $!
 
+cp /localNetwork/networkConfiguration/template.conf /blockchainData/data/constellation/$(hostname -i).conf
+sed -i 's/token/'"$(hostname -i)"'/g' /blockchainData/data/constellation/$(hostname -i).conf
 #Create name based on IP for a keyStore 
-constellation-node --workdir=$WORKDIRQUORUM --generatekeys=$(hostname -i) & wait $!
+cd /blockchainData/data/constellation/data/keystore
+echo -e "" >> /blockchainData/data/constellation/data/passwords.txt
+#constellation-node --generatekeys=$(hostname -i) --passwords=/blockchainData/data/constellation/data/passwords.txt 
+expect -f /generateQuorumKeyStores.exp $(hostname -i)
+cd /
 
-sed -i 's/token/'"$(hostname -i)"'/g' /blockchainData/$(hostname -i).conf & wait $!
-nohup constellation-node /blockchainData/$(hostname -i).conf 2>> $WORKDIRQUORUM/logs/constellation-$(hostname -i).log &
+sleep 5
+nohup constellation-node /blockchainData/data/constellation/$(hostname -i).conf 2>> /blockchainData/data/constellation/logs/constellation-$(hostname -i).log & 
+sleep 30
 
-#background
-#PRIVATE_CONFIG=$(hostname -i).conf nohup geth --verbosity 2 --datadir=$WORKDIRETH --networkid 99 --port 30303 --rpc -rpcport 8545 --etherbase "0x0000000000000000000000000000000000000000" console --rpcaddr "0.0.0.0" --rpccorsdomain "*" --permissioned 2>> $WORKDIRETH/logs/1.log
+if [[ ! -f "permissioned-nodes.json" ]]; then
+    # Esto es necesario por un bug de Quorum https://github.com/jpmorganchase/quorum/issues/225
+    ln -s /blockchainData/data/permissioned-nodes.json permissioned-nodes.json
+fi
 
-PRIVATE_CONFIG=/blockchainData/$(hostname -i).conf geth --verbosity 2 --datadir=$WORKDIRETH --networkid 99 --port 30303 --rpc -rpcport 8545 --etherbase "0x0000000000000000000000000000000000000000" console --rpcaddr "0.0.0.0" --rpccorsdomain "*" --permissioned
+PRIVATE_CONFIG=/blockchainData/data/constellation/$(hostname -i).conf geth --verbosity 2 --identity $(hostname -i) --datadir=/blockchainData/data/ --networkid 99 --permissioned --port 30303 --rpc --rpcapi "admin,db,eth,debug,miner,net,shh,txpool,personal,web3,quorum" -rpcport 8545 --etherbase "0x0000000000000000000000000000000000000000" console --rpcaddr "0.0.0.0" --rpccorsdomain "*" 

@@ -1,4 +1,8 @@
 FROM ubuntu:xenial
+
+ENV GOROOT /usr/local/go
+ENV GOPATH ~/go
+ENV PATH $GOROOT/bin:$GOPATH/bin:$PATH
  
 COPY scripts/installPreRequirements.sh .
 COPY scripts/installGolang.sh .
@@ -8,6 +12,7 @@ COPY scripts/installEthereumClient.sh .
 COPY scripts/installConstallationQuorum.sh .
 
 COPY scripts/bootstrapNetworkQuorum.sh .
+COPY scripts/generateQuorumKeyStores.exp .
 
 RUN /bin/bash installPreRequirements.sh
 RUN /bin/bash installGolang.sh
