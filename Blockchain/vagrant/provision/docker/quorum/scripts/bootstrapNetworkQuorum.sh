@@ -84,4 +84,4 @@ if [[ ! -f "permissioned-nodes.json" ]]; then
     ln -s /blockchainData/data/permissioned-nodes.json permissioned-nodes.json
 fi
 
-PRIVATE_CONFIG=/blockchainData/data/constellation/$(hostname -i).conf geth --verbosity 2 --identity $(hostname -i) --datadir=/blockchainData/data/ --networkid 99 --permissioned --port 30303 --rpc --rpcapi "admin,db,eth,debug,miner,net,shh,txpool,personal,web3,quorum" -rpcport 8545 --etherbase "0x0000000000000000000000000000000000000000" console --rpcaddr "0.0.0.0" --rpccorsdomain "*" 
+PRIVATE_CONFIG=/blockchainData/data/constellation/$(hostname -i).conf geth --verbosity 2 --identity $(hostname -i) --datadir=/blockchainData/data/ --networkid 99 --permissioned --port 30303 --rpc --rpcapi "admin,db,eth,debug,miner,net,shh,txpool,personal,web3,quorum" --rpcport 8545 --etherbase "0x0000000000000000000000000000000000000000" console --rpcaddr "0.0.0.0" --rpccorsdomain "*" 
