@@ -1,0 +1,9 @@
+FROM ubuntu:xenial
+  
+COPY scripts/installPreRequirements.sh .
+COPY scripts/installEthereumClient.sh .
+
+RUN /bin/bash installPreRequirements.sh
+RUN /bin/bash installEthereumClient.sh
+
+EXPOSE 9000 21000 21000/udp 22000 41000

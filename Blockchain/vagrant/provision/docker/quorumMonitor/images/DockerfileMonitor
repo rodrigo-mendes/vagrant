@@ -1,0 +1,10 @@
+FROM ubuntu:xenial
+  
+COPY scripts/ethNetIntelligenceApiInstall.sh .
+COPY scripts/ethNetIntelligenceApiConfig.sh .
+COPY scripts/ethNetIntelligenceApiRun.sh .
+COPY config/configMonitorTemplate.json /
+
+RUN /bin/bash ethNetIntelligenceApiInstall.sh
+
+EXPOSE 3000 3001

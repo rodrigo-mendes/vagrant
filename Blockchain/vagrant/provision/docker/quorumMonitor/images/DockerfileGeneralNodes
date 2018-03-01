@@ -1,0 +1,27 @@
+FROM ubuntu:xenial
+
+ENV GOROOT /usr/local/go
+ENV GOPATH ~/go
+ENV PATH $GOROOT/bin:$GOPATH/bin:$PATH
+ 
+COPY scripts/installPreRequirements.sh .
+COPY scripts/installGolang.sh .
+COPY scripts/installLevelDB.sh .
+COPY scripts/installEthereum.sh .
+COPY scripts/installEthereumClient.sh .
+COPY scripts/installConstallationQuorum.sh .
+
+COPY scripts/passwordfile.pass .
+COPY scripts/bootstrapNetworkQuorum.sh .
+COPY scripts/generateQuorumKeyStores.exp .
+
+RUN /bin/bash installPreRequirements.sh
+RUN /bin/bash installGolang.sh
+RUN /bin/bash installLevelDB.sh
+RUN /bin/bash installEthereum.sh
+RUN /bin/bash installEthereumClient.sh
+RUN /bin/bash installConstallationQuorum.sh
+
+CMD ["/bin/bash", "./bootstrapNetworkQuorum.sh"]
+
+EXPOSE 9000 21000 21000/udp 22000 41000 8545 30303

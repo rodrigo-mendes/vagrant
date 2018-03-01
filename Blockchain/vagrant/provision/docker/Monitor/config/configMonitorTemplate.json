@@ -1,0 +1,28 @@
+[
+  {
+    "name"              : "[monitorAppName]",
+    "cwd"               : "[directoryRoot]/bin/www/",
+    "script"            : "app.js",
+    "log_date_format"   : "YYYY-MM-DD HH:mm Z",
+    "log_file"          : "[directoryRoot]/logs/node-app-log.log",
+    "out_file"          : "[directoryRoot]/logs/node-app-out.log",
+    "error_file"        : "[directoryRoot]/logs/node-app-err.log",
+    "merge_logs"        : false,
+    "watch"             : false,
+    "max_restarts"      : 10,
+    "exec_interpreter"  : "node",
+    "exec_mode"         : "fork_mode",
+    "env":
+    {
+      "NODE_ENV"        : "production",
+      "RPC_HOST"        : "[rpcHost]",
+      "RPC_PORT"        : "[rpcPort]",
+      "LISTENING_PORT"  : "[listeningPort]",
+      "INSTANCE_NAME"   : "[instanceName]",
+      "CONTACT_DETAILS" : "",
+      "WS_SERVER"       : "http://[websocketServer]:[websocketPort]/",
+      "WS_SECRET"       : "[websocketSecret]",
+      "VERBOSITY"       : 2
+    }
+  }
+]

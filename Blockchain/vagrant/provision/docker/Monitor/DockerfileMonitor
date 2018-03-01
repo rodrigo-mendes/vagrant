@@ -1,0 +1,11 @@
+FROM ubuntu:xenial
+  
+COPY scripts/ethNetIntelligenceApiInstall.sh .
+COPY scripts/ethNetIntelligenceApiConfig.sh .
+COPY scripts/ethNetIntelligenceApiRun.sh .
+COPY config/configMonitorTemplate.json /
+
+RUN /bin/bash ethNetIntelligenceApiInstall.sh
+RUN /bin/bash ethNetIntelligenceApiConfig.sh 'root' node-app '52.178.180.77' 22001 30303 '52.178.180.77' 'localhost' 3000 password
+
+EXPOSE 3000 3001

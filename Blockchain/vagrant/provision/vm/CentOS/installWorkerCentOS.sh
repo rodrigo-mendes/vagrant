@@ -56,6 +56,6 @@ swapoff -a
 yum install -y net-tools
 # END - Fora documentação
 
-kubeadm join --token=$TOKEN $IP:6443 --discovery-token-unsafe-skip-ca-verification
+#kubeadm join --token=$TOKEN $IP:6443 --discovery-token-unsafe-skip-ca-verification
 
 

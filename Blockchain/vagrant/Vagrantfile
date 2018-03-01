@@ -20,6 +20,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.define "master" do |master|
     master.vm.network :private_network, :ip => "#{ip}"
 	master.vm.network "forwarded_port", guest: 8001, host: 8001
+	master.vm.network "forwarded_port", guest: 63000, host: 63000
     master.vm.hostname = "k8s-master"
     master.vm.provider "virtualbox" do |v|
       v.memory = $master_memory

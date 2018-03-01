@@ -1,0 +1,10 @@
+FROM ubuntu:xenial
+  
+COPY scripts/ethNetstatInstall.sh .
+COPY scripts/ethNetstatRun.sh .
+
+RUN /bin/bash ethNetstatInstall.sh
+
+CMD ["/bin/bash", "./ethNetstatRun.sh"]
+
+EXPOSE 3000 3001

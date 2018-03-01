@@ -1,0 +1,19 @@
+geth attach rpc:http://172.18.0.4:8545 &
+
+cd ~/bin
+cp processes.json processes.json.old
+nano processes.json
+pm2 start processes.json
+
+git clone https://github.com/cubedro/eth-netstats
+cd eth-netstats
+npm install
+sudo npm install -g grunt-cli
+grunt
+
+WS_SECRET=password npm start
+
+editar app.js no final Webocket port
+
+
+sudo docker run --name monitor --hostname monitor -p 3000:3000 -p 3001:3001 --net ethnetwork -it ethereum_client /bin/bash
