@@ -2,7 +2,7 @@
 
 set -e
 
-GOREL="go1.7.3.linux-amd64.tar.gz"
+GOREL="go1.8.linux-amd64.tar.gz"
 
 #INSTALACION DE GO
 #PATH="$PATH:/usr/local/go/bin"

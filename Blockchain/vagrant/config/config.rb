@@ -2,7 +2,7 @@
 $token = "56225f.9096af3559800a6a"
 
 # Total memory of master
-$master_memory = 4096
+$master_memory = 8192
 
 # Increment to have more nodes
 $worker_count = 2
